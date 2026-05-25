@@ -11,7 +11,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PUBLIC_BASE_URL=""
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openjdk-17-jdk-headless ffmpeg ca-certificates \
+    && apt-get install -y --no-install-recommends openjdk-17-jdk-headless ffmpeg curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

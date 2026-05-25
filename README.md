@@ -361,6 +361,7 @@ Start → Code参数解析 → HTTP请求 → End
 3. 软测建议视频保持 3-5 秒、640×360。
 4. 这个服务会把输出视频保存在 `outputs` 目录。
 5. 正式部署建议加鉴权，否则别人知道地址也能调用接口。
+6. 如果 HiAgent 文件代理地址在服务器侧下载失败，服务会返回 `manualDownloadRequired=true`、`manualDownloadUrl` 和 `recommendedEndpoint=/api/video/upload`。这表示请求已经到达服务，但源视频无法被服务器下载，应改用上传接口或公网直链。
 
 ---
 
@@ -406,6 +407,14 @@ curl -X POST "https://你的域名/api/video/upload" \
 ```
 
 返回里的 `outputUrl` 就是处理后视频的下载/播放地址。
+
+如果 HiAgent 返回的 `videoUrl` 类似下面这种代理下载地址，并且 `/api/video/process` 返回下载失败：
+
+```text
+http://hiagent.aigc.smdata.com.cn/api/proxy/down?Action=DownloadForPresign&...
+```
+
+优先改用本上传接口。上传接口不需要服务端再次访问 HiAgent 的临时下载链接，稳定性更高。
 
 ---
 

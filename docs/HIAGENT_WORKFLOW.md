@@ -103,6 +103,7 @@ http://服务器IP:8080/api/video/process
 - `publicBaseUrl` 必须写成外部能访问到服务的地址。
 - 如果服务部署在 `http://192.168.1.10:8080`，就填这个。
 - 如果服务通过域名暴露，例如 `https://video.example.com`，就填域名。
+- 如果返回 `manualDownloadRequired=true`，说明工作流已经调到服务，但服务端下载 HiAgent 文件代理地址失败。此时应改用 `/api/video/upload` 文件上传接口，或把视频先放到公网直链。
 
 ---
 
@@ -146,6 +147,19 @@ message
   "size": 607199
 }
 ```
+
+失败兜底字段：
+
+```json
+{
+  "success": false,
+  "manualDownloadRequired": true,
+  "manualDownloadUrl": "原始视频下载地址",
+  "recommendedEndpoint": "/api/video/upload"
+}
+```
+
+看到这个结果时，不要回复处理完成；提示用户当前视频源不能被服务器下载，建议改用上传接口或公网直链。
 
 ---
 

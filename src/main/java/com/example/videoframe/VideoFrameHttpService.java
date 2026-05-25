@@ -111,6 +111,7 @@ final class VideoProcessor {
         this.httpClient = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.ALWAYS)
                 .connectTimeout(Duration.ofSeconds(20))
+                .version(HttpClient.Version.HTTP_1_1)
                 .build();
     }
 
@@ -229,6 +230,8 @@ final class VideoProcessor {
             response.put("video", video);
             response.put("error", null);
             return response;
+        } catch (VideoDownloadException e) {
+            return failDownload(e);
         } catch (Exception e) {
             return fail("服务处理异常：" + e.getMessage(), e.toString());
         }
@@ -249,26 +252,88 @@ final class VideoProcessor {
             }
             return p;
         }
-        if (Files.exists(Path.of(videoUrl))) {
-            return Path.of(videoUrl).toAbsolutePath().normalize();
+        if (isHttpUrl(videoUrl)) {
+            return downloadVideo(videoUrl, inputName);
         }
-        return downloadVideo(videoUrl, inputName);
+        try {
+            Path localPath = Path.of(videoUrl);
+            if (Files.exists(localPath)) {
+                return localPath.toAbsolutePath().normalize();
+            }
+        } catch (Exception ignored) {
+        }
+        throw new VideoDownloadException(
+                "视频地址不是可直接下载的 http/https URL：" + videoUrl +
+                        "。如果 HiAgent 只给 upload/full/... 相对路径，请改用 /api/video/upload 文件上传接口。",
+                videoUrl,
+                null,
+                null
+        );
     }
 
     private Path downloadVideo(String videoUrl, String inputName) throws Exception {
         String ext = extOf(inputName);
         if (ext.isBlank()) ext = ".mp4";
         Path tempFile = Files.createTempFile(config.inputTmpDir(), "input_", ext);
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(videoUrl))
-                .timeout(Duration.ofSeconds(120))
-                .GET()
-                .build();
-        HttpResponse<Path> response = httpClient.send(request, HttpResponse.BodyHandlers.ofFile(tempFile));
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new RuntimeException("下载视频失败，HTTP 状态码：" + response.statusCode());
+        String javaError = null;
+        Integer javaStatus = null;
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(videoUrl))
+                    .timeout(Duration.ofSeconds(120))
+                    .header("User-Agent", browserUserAgent())
+                    .header("Accept", "video/mp4,video/*,*/*;q=0.8")
+                    .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+                    .GET()
+                    .build();
+            HttpResponse<Path> response = httpClient.send(request, HttpResponse.BodyHandlers.ofFile(tempFile));
+            javaStatus = response.statusCode();
+            if (response.statusCode() >= 200 && response.statusCode() < 300 && Files.size(tempFile) > 0) {
+                return tempFile;
+            }
+            javaError = "Java HTTP 下载失败，HTTP 状态码：" + response.statusCode();
+        } catch (Exception e) {
+            javaError = "Java HTTP 下载异常：" + e;
         }
-        return tempFile;
+
+        ProcessResult curl = downloadWithCurl(videoUrl, tempFile);
+        if (curl.exitCode() == 0 && Files.exists(tempFile) && Files.size(tempFile) > 0) {
+            return tempFile;
+        }
+
+        try {
+            Files.deleteIfExists(tempFile);
+        } catch (IOException ignored) {
+        }
+        String curlError = "curl fallback 失败，退出码：" + curl.exitCode() + "，输出：" + trim(curl.output(), 800);
+        throw new VideoDownloadException(
+                "下载视频失败。" + javaError + "；" + curlError +
+                        "。如果这是 HiAgent 上传文件地址，请优先调用 /api/video/upload 直接上传文件，或换成服务器可访问的公网视频直链。",
+                videoUrl,
+                javaStatus,
+                javaError + "；" + curlError
+        );
+    }
+
+    private ProcessResult downloadWithCurl(String videoUrl, Path outputFile) {
+        return runCommand(List.of(
+                "curl",
+                "-sS",
+                "-L",
+                "--fail",
+                "--max-time", "120",
+                "--retry", "2",
+                "--retry-delay", "1",
+                "-A", browserUserAgent(),
+                "-H", "Accept: video/mp4,video/*,*/*;q=0.8",
+                "-o", outputFile.toString(),
+                videoUrl
+        ), 140);
+    }
+
+    private String browserUserAgent() {
+        return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/125.0 Safari/537.36";
     }
 
     private String getFps(Path videoPath) {
@@ -359,6 +424,20 @@ final class VideoProcessor {
         return response;
     }
 
+    private static Map<String, Object> failDownload(VideoDownloadException e) {
+        Map<String, Object> response = fail(
+                "视频源地址已收到，但服务器下载源视频失败：" + e.getMessage(),
+                e.detail()
+        );
+        response.put("manualDownloadRequired", true);
+        response.put("manualDownloadUrl", e.videoUrl());
+        response.put("sourceVideoUrl", e.videoUrl());
+        response.put("downloadStatus", e.statusCode());
+        response.put("recommendedEndpoint", "/api/video/upload");
+        response.put("hint", "HiAgent 文件代理地址在外部服务器上可能返回 502。请改用 multipart/form-data 文件上传接口 /api/video/upload，或传入公网可直接下载的视频 URL。");
+        return response;
+    }
+
     private String shortId() {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 8);
     }
@@ -371,6 +450,12 @@ final class VideoProcessor {
 
     private static boolean isBlank(String s) {
         return s == null || s.trim().isEmpty();
+    }
+
+    private static boolean isHttpUrl(String s) {
+        if (isBlank(s)) return false;
+        String lower = s.toLowerCase(Locale.ROOT);
+        return lower.startsWith("http://") || lower.startsWith("https://");
     }
 
     private static String firstNonBlank(String... values) {
@@ -391,6 +476,31 @@ final class VideoProcessor {
 
 record ModeInfo(String modeCn, String modeCode, int defaultFps) {}
 record ProcessResult(int exitCode, String output) {}
+
+final class VideoDownloadException extends Exception {
+    private final String videoUrl;
+    private final Integer statusCode;
+    private final String detail;
+
+    VideoDownloadException(String message, String videoUrl, Integer statusCode, String detail) {
+        super(message);
+        this.videoUrl = videoUrl;
+        this.statusCode = statusCode;
+        this.detail = detail == null ? message : detail;
+    }
+
+    String videoUrl() {
+        return videoUrl;
+    }
+
+    Integer statusCode() {
+        return statusCode;
+    }
+
+    String detail() {
+        return detail;
+    }
+}
 
 record VideoRequest(
         String input,
