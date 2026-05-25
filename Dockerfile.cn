@@ -1,0 +1,33 @@
+# 中国大陆构建建议用这个 Dockerfile：
+# 1) 使用阿里云镜像仓库的 ubuntu 基础镜像
+# 2) apt 源切到 mirrors.aliyun.com
+# 3) 不使用 Maven，不访问 Maven Central
+# 构建：docker build -f Dockerfile.cn -t hiagent-video-http-service:1.0 .
+FROM registry.cn-hangzhou.aliyuncs.com/library/ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    FFMPEG_PATH=ffmpeg \
+    OUTPUT_DIR=/app/outputs \
+    INPUT_TMP_DIR=/app/tmp-inputs \
+    TEST_VIDEO_DIR=/app/test-videos \
+    DEFAULT_MAX_SECONDS=3 \
+    PUBLIC_BASE_URL=""
+
+RUN sed -i 's@http://archive.ubuntu.com/ubuntu/@http://mirrors.aliyun.com/ubuntu/@g' /etc/apt/sources.list \
+    && sed -i 's@http://security.ubuntu.com/ubuntu/@http://mirrors.aliyun.com/ubuntu/@g' /etc/apt/sources.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends openjdk-17-jdk-headless ffmpeg ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY src ./src
+COPY test-videos ./test-videos
+
+RUN mkdir -p /app/outputs /app/tmp-inputs \
+    && find src -name "*.java" > sources.txt \
+    && javac -encoding UTF-8 -d out @sources.txt \
+    && jar --create --file app.jar --main-class com.example.videoframe.VideoFrameHttpService -C out . \
+    && rm -rf out sources.txt src
+
+EXPOSE 8080
+CMD ["java", "-jar", "/app/app.jar"]

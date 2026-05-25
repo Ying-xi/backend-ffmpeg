@@ -1,0 +1,11 @@
+outputs/
+tmp-inputs/
+app.jar
+*.tar
+.git/
+.gitignore
+README.md
+TEST_RESULTS.md
+docs/
+scripts/
+docker-compose.yml

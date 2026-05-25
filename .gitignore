@@ -1,0 +1,8 @@
+outputs/
+tmp-inputs/
+app.jar
+*.tar
+*.log
+.env
+.DS_Store
+Thumbs.db

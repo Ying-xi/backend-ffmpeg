@@ -1,0 +1,21 @@
+services:
+  video-frame-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.cn
+    image: hiagent-video-http-service:1.0
+    container_name: hiagent-video-http-service
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      FFMPEG_PATH: "ffmpeg"
+      OUTPUT_DIR: "/app/outputs"
+      INPUT_TMP_DIR: "/app/tmp-inputs"
+      TEST_VIDEO_DIR: "/app/test-videos"
+      DEFAULT_MAX_SECONDS: "3"
+      # 部署到服务器时建议改成 http://服务器IP:8080 或 https://你的域名
+      PUBLIC_BASE_URL: ""
+    volumes:
+      - ./outputs:/app/outputs
+      - ./tmp-inputs:/app/tmp-inputs
