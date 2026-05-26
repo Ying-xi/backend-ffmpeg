@@ -13,7 +13,9 @@ services:
       OUTPUT_DIR: "/app/outputs"
       INPUT_TMP_DIR: "/app/tmp-inputs"
       TEST_VIDEO_DIR: "/app/test-videos"
-      DEFAULT_MAX_SECONDS: "3"
+      DEFAULT_MAX_SECONDS: "5"
+      MAX_SECONDS_LIMIT: "60"
+      FFMPEG_TIMEOUT_SECONDS: "600"
       # 部署到服务器时建议改成 http://服务器IP:8080 或 https://你的域名
       PUBLIC_BASE_URL: ""
     volumes:
