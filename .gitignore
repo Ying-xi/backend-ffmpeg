@@ -1,6 +1,7 @@
 outputs/
 tmp-inputs/
 app.jar
+railway-output-*.mp4
 *.tar
 *.log
 .env

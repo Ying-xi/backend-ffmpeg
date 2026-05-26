@@ -7,7 +7,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     OUTPUT_DIR=/app/outputs \
     INPUT_TMP_DIR=/app/tmp-inputs \
     TEST_VIDEO_DIR=/app/test-videos \
-    DEFAULT_MAX_SECONDS=3 \
+    DEFAULT_MAX_SECONDS=5 \
+    MAX_SECONDS_LIMIT=60 \
+    FFMPEG_TIMEOUT_SECONDS=600 \
     PUBLIC_BASE_URL=""
 
 RUN apt-get update \

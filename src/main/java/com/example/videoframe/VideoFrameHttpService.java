@@ -59,6 +59,9 @@ public class VideoFrameHttpService {
         System.out.println("ffmpegPath=" + config.ffmpegPath());
         System.out.println("outputDir=" + config.outputDir().toAbsolutePath().normalize());
         System.out.println("testVideoDir=" + config.testVideoDir().toAbsolutePath().normalize());
+        System.out.println("defaultMaxSeconds=" + config.defaultMaxSeconds());
+        System.out.println("maxSecondsLimit=" + config.maxSecondsLimit());
+        System.out.println("ffmpegTimeoutSeconds=" + config.ffmpegTimeoutSeconds());
         System.out.println("publicBaseUrl=" + config.publicBaseUrl());
         System.out.println("health=http://127.0.0.1:" + config.port() + "/api/video/health");
     }
@@ -71,6 +74,8 @@ record Config(
         Path inputTmpDir,
         Path testVideoDir,
         int defaultMaxSeconds,
+        int maxSecondsLimit,
+        int ffmpegTimeoutSeconds,
         String publicBaseUrl
 ) {
     static Config fromEnv() {
@@ -79,9 +84,11 @@ record Config(
         Path outputDir = Path.of(env("OUTPUT_DIR", "./outputs")).toAbsolutePath().normalize();
         Path inputTmpDir = Path.of(env("INPUT_TMP_DIR", "./tmp-inputs")).toAbsolutePath().normalize();
         Path testVideoDir = Path.of(env("TEST_VIDEO_DIR", "./test-videos")).toAbsolutePath().normalize();
-        int defaultMaxSeconds = clamp(parseInt(env("DEFAULT_MAX_SECONDS", "3"), 3), 1, 10);
+        int maxSecondsLimit = clamp(parseInt(env("MAX_SECONDS_LIMIT", "60"), 60), 1, 600);
+        int defaultMaxSeconds = clamp(parseInt(env("DEFAULT_MAX_SECONDS", "5"), 5), 1, maxSecondsLimit);
+        int ffmpegTimeoutSeconds = clamp(parseInt(env("FFMPEG_TIMEOUT_SECONDS", "600"), 600), 30, 1800);
         String publicBaseUrl = env("PUBLIC_BASE_URL", "");
-        return new Config(port, ffmpegPath, outputDir, inputTmpDir, testVideoDir, defaultMaxSeconds, publicBaseUrl);
+        return new Config(port, ffmpegPath, outputDir, inputTmpDir, testVideoDir, defaultMaxSeconds, maxSecondsLimit, ffmpegTimeoutSeconds, publicBaseUrl);
     }
 
     private static String env(String key, String defaultValue) {
@@ -124,6 +131,9 @@ final class VideoProcessor {
         result.put("ffmpegPath", config.ffmpegPath());
         result.put("ffmpegOk", version.exitCode() == 0);
         result.put("hasMinterpolate", filters.output().contains("minterpolate"));
+        result.put("defaultMaxSeconds", config.defaultMaxSeconds());
+        result.put("maxSecondsLimit", config.maxSecondsLimit());
+        result.put("ffmpegTimeoutSeconds", config.ffmpegTimeoutSeconds());
         result.put("version", trim(version.output(), 500));
         return result;
     }
@@ -142,7 +152,7 @@ final class VideoProcessor {
 
             ModeInfo mode = resolveMode(req, forcedMode);
             int targetFps = resolveTargetFps(req, mode.defaultFps());
-            int maxSeconds = clamp(req.maxSeconds() == null ? config.defaultMaxSeconds() : req.maxSeconds(), 1, 10);
+            int maxSeconds = clamp(req.maxSeconds() == null ? config.defaultMaxSeconds() : req.maxSeconds(), 1, config.maxSecondsLimit());
 
             Path inputFile = resolveInput(videoUrl, videoPath, inputName);
             String inputFps = getFps(inputFile);
@@ -178,7 +188,7 @@ final class VideoProcessor {
                     outputFile.toString()
             );
 
-            ProcessResult result = runCommand(cmd, 90);
+            ProcessResult result = runCommand(cmd, config.ffmpegTimeoutSeconds());
             if (result.exitCode() != 0) {
                 return fail("视频处理失败\n功能: " + mode.modeCn() +
                         "\n目标帧率: " + targetFps + "fps" +

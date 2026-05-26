@@ -52,7 +52,7 @@ Start 保持两个输入：
 | `key1` | String | 上传视频 URL |
 | `key2` | Number | 目标 FPS |
 | `key3` | String | 输入文件名 |
-| `key4` | Number | 处理时长，默认 3 秒 |
+| `key4` | Number | 处理时长，默认 5 秒，最大 60 秒 |
 
 代码使用：
 

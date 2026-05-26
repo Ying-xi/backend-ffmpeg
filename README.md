@@ -17,7 +17,7 @@ POST http://服务器IP:8080/api/video/process
   "mode": "repair",
   "videoUrl": "HiAgent 上传文件的下载 URL",
   "targetFps": 30,
-  "maxSeconds": 3,
+  "maxSeconds": 5,
   "publicBaseUrl": "http://服务器IP:8080"
 }
 ```
@@ -95,7 +95,7 @@ POST /api/video/process
   "videoUrl": "http://hiagent.../api/proxy/down?...",
   "inputName": "test_repair_input_15fps_360p_5s.mp4",
   "targetFps": 30,
-  "maxSeconds": 3,
+  "maxSeconds": 5,
   "publicBaseUrl": "http://服务器IP:8080"
 }
 ```
@@ -109,7 +109,7 @@ POST /api/video/process
 | `videoUrl` | 是 | HiAgent 上传文件的下载 URL |
 | `inputName` | 否 | 输入文件名 |
 | `targetFps` | 否 | 目标帧率，15-60 |
-| `maxSeconds` | 否 | 处理前 N 秒，建议 3 |
+| `maxSeconds` | 否 | 处理前 N 秒，默认 5，当前最大 60 |
 | `publicBaseUrl` | 建议填 | 服务外部访问地址，例如 `http://服务器IP:8080` |
 
 也支持直接传 HiAgent 的 `files`：
@@ -312,7 +312,7 @@ http://192.168.1.10:8080/api/video/process
   "videoUrl": "{{Code参数解析.key1}}",
   "inputName": "{{Code参数解析.key3}}",
   "targetFps": {{Code参数解析.key2}},
-  "maxSeconds": 3,
+  "maxSeconds": 5,
   "publicBaseUrl": "http://192.168.1.10:8080"
 }
 ```
@@ -381,7 +381,7 @@ Content-Type: multipart/form-data
 | `video` | 是 | `@input.mp4` | 视频文件，字段名固定为 `video` |
 | `mode` | 是 | `repair` / `interpolate` | `repair` 是补帧，`interpolate` 是插帧 |
 | `targetFps` | 否 | `30` / `60` | 目标帧率，支持 15-60 |
-| `maxSeconds` | 否 | `3` | 最多处理秒数，服务限制 1-10 |
+| `maxSeconds` | 否 | `5` | 最多处理秒数，服务默认最大 60 |
 | `publicBaseUrl` | 否 | `https://xxx.up.railway.app` | 结果视频 URL 的公网前缀 |
 
 补帧上传示例：
@@ -391,7 +391,7 @@ curl -X POST "https://你的域名/api/video/upload" \
   -F "video=@input.mp4" \
   -F "mode=repair" \
   -F "targetFps=30" \
-  -F "maxSeconds=3" \
+  -F "maxSeconds=5" \
   -F "publicBaseUrl=https://你的域名"
 ```
 
@@ -402,7 +402,7 @@ curl -X POST "https://你的域名/api/video/upload" \
   -F "video=@input.mp4" \
   -F "mode=interpolate" \
   -F "targetFps=60" \
-  -F "maxSeconds=3" \
+  -F "maxSeconds=5" \
   -F "publicBaseUrl=https://你的域名"
 ```
 
@@ -432,7 +432,9 @@ http://hiagent.aigc.smdata.com.cn/api/proxy/down?Action=DownloadForPresign&...
 
 ```text
 PUBLIC_BASE_URL=https://你的Railway域名
-DEFAULT_MAX_SECONDS=3
+DEFAULT_MAX_SECONDS=5
+MAX_SECONDS_LIMIT=60
+FFMPEG_TIMEOUT_SECONDS=600
 ```
 
 Railway 会自动提供 `PORT` 变量，服务会监听这个端口，不需要手动设置。

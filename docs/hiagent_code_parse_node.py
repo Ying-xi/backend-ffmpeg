@@ -7,7 +7,7 @@
 #   key1: String  videoUrl，上传视频的可下载 URL
 #   key2: Number  targetFps
 #   key3: String  inputName
-#   key4: Number  maxSeconds
+#   key4: Number  maxSeconds，默认 5，最大 60
 
 
 def handler(params):
@@ -47,10 +47,14 @@ def handler(params):
     target_fps = int(m.group(1)) if m else default_fps
     target_fps = max(15, min(60, target_fps))
 
+    seconds_match = re.search(r"(\d+)\s*(?:秒|s|sec|seconds?)", query.lower())
+    max_seconds = int(seconds_match.group(1)) if seconds_match else 5
+    max_seconds = max(1, min(60, max_seconds))
+
     return {
         "key0": mode,
         "key1": video_url,
         "key2": target_fps,
         "key3": input_name,
-        "key4": 3
+        "key4": max_seconds
     }
